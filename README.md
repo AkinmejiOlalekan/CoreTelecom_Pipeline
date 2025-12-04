@@ -1,8 +1,8 @@
-# Telecom ETL Data Pipeline
+# Telecom ELT Data Pipeline
 
 ## Project Overview
 
-This project implements a robust ELT (Extract, Transform, Load) pipeline for a telecom company’s data. The pipeline integrates multiple data sources including PostgreSQL, Google Sheets, and S3 buckets,load and processes the data into a Snowflake Data Warehouse using Parquet files.
+This project implements a robust ELT (Extract,  Load Transform) pipeline for a telecom company’s data. The pipeline integrates multiple data sources including PostgreSQL, Google Sheets, and S3 buckets,load and processes the data into a Snowflake Data Warehouse using Parquet files.
 
  ### The system is designed for:
 
@@ -49,7 +49,7 @@ The ETL pipeline extracts data from multiple sources:
         - Only new files are processed.
     - Supports chunked reading for memory efficiency.
 
-2. **Data Transformation**
+2. **Data Standardization**
 
 - Standardizes column names (lowercase, underscores, strip spaces).
 - Adds metadata fields:
