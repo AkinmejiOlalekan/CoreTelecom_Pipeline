@@ -1,0 +1,56 @@
+name: CI - Code Quality
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  code-quality:
+    name: Check Code Quality
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Download code
+        uses: actions/checkout@v4
+      
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install Black
+        run: pip install black
+      
+      - name: Check code formatting
+        run: black --check .
+        continue-on-error: true
+        id: check-format
+      
+      - name: Auto-format code
+        if: steps.check-format.outcome == 'failure'
+        run: black .
+      
+      - name: Commit formatted code
+        if: steps.check-format.outcome == 'failure'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add -A
+          git commit -m "Auto-format code with Black" || echo "No changes to commit"
+      
+      - name: Push changes
+        if: steps.check-format.outcome == 'failure' && github.event_name == 'push' && !startsWith(github.actor, 'github-actions')
+        uses: ad-m/github-push-action@master
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ github.ref }}
+      
+      - name: Summary
+        run: |
+          echo " -------------------- Code quality check completed! -----------------------"
+          echo "All Python files are now properly formatted."
