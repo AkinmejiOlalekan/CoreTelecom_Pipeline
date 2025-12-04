@@ -1,0 +1,18 @@
+from dotenv import load_dotenv
+import os
+
+
+load_dotenv()
+
+DEST_BUCKET = os.getenv("DEST_BUCKET")
+AWS_REGION = os.getenv("AWS_REGION")
+
+
+SNOWFLAKE_ACCOUNT = "zy54618.eu-north-1.aws"
+SNOWFLAKE_USER = os.getenv("SNOWFLAKE_USER")
+SNOWFLAKE_PASSWORD = os.getenv("SNOWFLAKE_PASSWORD")
+SNOWFLAKE_WAREHOUSE = os.getenv("SNOWFLAKE_WAREHOUSE")
+SNOWFLAKE_DATABASE = os.getenv("SNOWFLAKE_DATABASE", "CORETELECOMS")
+SNOWFLAKE_SCHEMA = os.getenv("SNOWFLAKE_SCHEMA", "STAGING")
+
+DEFAULT_PARTITION_COLUMN = "ingestion_date"
