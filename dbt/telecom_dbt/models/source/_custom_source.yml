@@ -1,0 +1,47 @@
+version: 2
+
+sources:
+  - name: staging
+    database: Core_Telecom_db
+    schema: STAGING
+
+    tables:
+      - name: customers
+        columns:
+          - name: customer_id
+            tests:
+              - not_null
+              - unique
+
+      - name: agents
+        columns:
+          - name: agent_id
+            tests:
+              - not_null
+              - unique
+
+      - name: call_logs
+        columns:
+          - name: call_id
+            tests:
+              - not_null
+              - unique
+          - name: customer_id
+            tests:
+              - relationships:
+                  to: source('staging', 'customers')
+                  field: customer_id
+
+      - name: social_media
+        columns:
+          - name: record_id
+            tests:
+              - not_null
+              - unique
+
+      - name: web_forms
+        columns:
+          - name: form_id
+            tests:
+              - not_null
+              - unique
