@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-This project implements a robust ELT (Extract,  Load Transform) pipeline for a telecom company’s data. The pipeline integrates multiple data sources including PostgreSQL, Google Sheets, and S3 buckets,load and processes the data into a Snowflake Data Warehouse using Parquet files.
+This project implements a robust ELT (Extract,  Load, Transform) pipeline for a telecom company’s data. The pipeline integrates multiple data sources including PostgreSQL, Google Sheets, and S3 buckets,load and processes the data into a Snowflake Data Warehouse using Parquet files.
 
  ### The system is designed for:
 
@@ -22,6 +22,9 @@ A leading telecom company, faces a customer retention crisis due to poor managem
 - Snowflake
 - dbt
 - Docker
+
+### Project Archetecture
+![screenshort](image/cde_project.gif)
 
 ### Project Components
 
@@ -100,6 +103,6 @@ If formatting issues are detected the workflow auto-formats the code and commits
 
 - CD:  Build and Push Docker
 
-Triggers on changes to main, limited to files that affect the runtime image (e.g., Dockerfile, extract_folder/**, snowflakes/**).
+Triggers on changes to main, limited to files that affect the runtime image (e.g., Dockerfile, extract_folder/*, snowflakes/**).
 
 Builds Docker images tagged as latest and by the commit SHA, then pushes them to Docker Hub.

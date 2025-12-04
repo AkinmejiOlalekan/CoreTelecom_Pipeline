@@ -1,0 +1,169 @@
+
+version: '3.8'
+
+services:
+  
+  postgres:
+    image: postgres:12
+    container_name: telecom_postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
+    networks:
+      - airflow-network
+
+  airflow-webserver:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: telecom_airflow_webserver
+    command: webserver
+    ports:
+      - "8080:8080"
+    environment:
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+      AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW__WEBSERVER__SECRET_KEY}
+      
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_REGION: ${AWS_REGION}
+      SOURCE_BUCKET: ${SOURCE_BUCKET}
+      DEST_BUCKET: ${DEST_BUCKET}
+      
+      SNOWFLAKE_ACCOUNT: ${SNOWFLAKE_ACCOUNT}
+      SNOWFLAKE_USER: ${SNOWFLAKE_USER}
+      SNOWFLAKE_PASSWORD: ${SNOWFLAKE_PASSWORD}
+      SNOWFLAKE_WAREHOUSE: ${SNOWFLAKE_WAREHOUSE}
+      SNOWFLAKE_DATABASE: ${SNOWFLAKE_DATABASE}
+      SNOWFLAKE_SCHEMA: ${SNOWFLAKE_SCHEMA}
+      
+      SERVICE_ACCOUNT: ${SERVICE_ACCOUNT}
+      SHEET_ID: ${SHEET_ID}
+      SHEET_NAME: ${SHEET_NAME}
+      
+      PYTHONPATH: /opt/airflow:/opt/airflow/extract_folder:/opt/airflow/snowflakes
+    
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./extract_folder:/opt/airflow/extract_folder
+      - ./snowflakes:/opt/airflow/snowflakes
+      - ./dbt:/opt/airflow/dbt
+      - ./credentials:/opt/airflow/credentials
+    
+    depends_on:
+      postgres:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
+    
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: always
+    networks:
+      - airflow-network
+
+  airflow-scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: telecom_airflow_scheduler
+    command: scheduler
+    environment:
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+      
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_REGION: ${AWS_REGION}
+      SOURCE_BUCKET: ${SOURCE_BUCKET}
+      DEST_BUCKET: ${DEST_BUCKET}
+      
+      SNOWFLAKE_ACCOUNT: ${SNOWFLAKE_ACCOUNT}
+      SNOWFLAKE_USER: ${SNOWFLAKE_USER}
+      SNOWFLAKE_PASSWORD: ${SNOWFLAKE_PASSWORD}
+      SNOWFLAKE_WAREHOUSE: ${SNOWFLAKE_WAREHOUSE}
+      SNOWFLAKE_DATABASE: ${SNOWFLAKE_DATABASE}
+      SNOWFLAKE_SCHEMA: ${SNOWFLAKE_SCHEMA}
+      
+      SERVICE_ACCOUNT: ${SERVICE_ACCOUNT}
+      SHEET_ID: ${SHEET_ID}
+      SHEET_NAME: ${SHEET_NAME}
+      
+      PYTHONPATH: /opt/airflow:/opt/airflow/extract_folder:/opt/airflow/snowflakes
+    
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./extract_folder:/opt/airflow/extract_folder
+      - ./snowflakes:/opt/airflow/snowflakes
+      - ./dbt:/opt/airflow/dbt
+      - ./credentials:/opt/airflow/credentials
+    
+    depends_on:
+      postgres:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
+    
+    restart: always
+    networks:
+      - airflow-network
+
+  airflow-init:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: telecom_airflow_init
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        # Initialize Airflow database
+        airflow db migrate
+        
+        # Create admin user
+        airflow users create \
+          --username airflow \
+          --firstname Admin \
+          --lastname User \
+          --role Admin \
+          --email admin@example.com \
+          --password "$AIRFLOW_ADMIN_PASSWORD"
+        
+        echo "Airflow initialized successfully!"
+    
+    environment:
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:$POSTGRES_DB@postgres/airflow
+    
+    depends_on:
+      postgres:
+        condition: service_healthy
+    
+    networks:
+      - airflow-network
+
+volumes:
+  postgres-data:
+    driver: local
+
+networks:
+  airflow-network:
+    driver: bridge
