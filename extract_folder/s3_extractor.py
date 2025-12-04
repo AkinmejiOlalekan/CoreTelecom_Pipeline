@@ -84,7 +84,6 @@ def extract_customers(chunk_size=200_000):
             chunk = clean_column_names(chunk)
             chunk = add_metadata(chunk, "customers")
 
-
             wr.s3.to_parquet(
                 df=chunk,
                 path=path,
@@ -144,9 +143,7 @@ def extract_call_logs():
 
 def extract_social_media():
     """
-    Extract social media JSON from S3 and load to destination S3.
-    IDEMPOTENT: Each partition is completely overwritten per run.
-    Memory-efficient: Processes one file at a time.
+    Extract social media json from S3 and load to destination S3.
     """
     logger.info("[3/3]: ..................... Extracting Social Media data from S3 .....................")
     
@@ -158,7 +155,6 @@ def extract_social_media():
         return 0
 
     total_rows = 0
-    processed_dates = set()  
     
     for idx, file_info in enumerate(new_files):
         file_key = file_info['key']
@@ -179,16 +175,22 @@ def extract_social_media():
             df = clean_column_names(df)
             df = add_metadata(df, "social_medias")
             
-            # IDEMPOTENT LOGIC:
-            # First time we see this date: overwrite partition
-            # Subsequent files for same date: append
-            if partition_date not in processed_dates:
-                mode = "overwrite_partitions"
-                processed_dates.add(partition_date)
-                logger.info(f"---------------------------- First file for {partition_date}: OVERWRITING partition")
-            else:
+            # Check if partition already exists in destination S3
+            partition_path = f"s3://{DEST_BUCKET}/social_medias/media_complaint_day_{partition_date}"
+            
+            try:
+                # Try to read existing partition to check if it exists
+                existing_files = wr.s3.list_objects(partition_path)
+                partition_exists = len(existing_files) > 0
+            except:
+                partition_exists = False
+            
+            if partition_exists:
                 mode = "append"
-                logger.info(f"-------------------------------- Additional file for {partition_date}: APPENDING")
+                logger.info(f"-------------------------------- Partition {partition_date} exists: APPENDING")
+            else:
+                mode = "overwrite_partitions"
+                logger.info(f"---------------------------- New partition {partition_date}: OVERWRITING")
             
             write_to_s3_parquet(
                 df=df,
@@ -217,37 +219,3 @@ def extract_social_media():
     
     return total_rows
 
-
-
-
-# def extract_social_media():
-#     """
-#         Extract social media JSON from S3 and normalize.
-#     """
-#     logger.info("[3/3]: ..................... Extracting Social Media data from S3 .....................")
-    
-#     prefix = "social_medias/"
-    
-#     new_files = get_new_source_files(prefix, '.json')
-
-#     if not new_files:
-#         logger.warning("****************** No new social media files process ********************")
-#         return pd.DataFrame()
-#     dfs = []
-#     for file_info in new_files:
-#         logger.info(f"------------------------- Processing new file: {file_info['key']} -----------------------")
-#         obj = s3_client.get_object(Bucket=SOURCE_BUCKET, Key=file_info['key'])
-
-#         data = json.loads(obj['Body'].read())
-#         df = pd.json_normalize(data) if isinstance(data, list) else pd.json_normalize([data])
-
-#         dfs.append(df)
-
-#     df = pd.concat(dfs, ignore_index=True)
-#     df = clean_column_names(df)
-#     df = add_metadata(df, "social_medias")
-
-#     mark_source_files_as_processed(new_files, EXECUTION_DATE)
-
-#     logger.info(f"Loaded {len(df)} social media records from {len(new_files)} new source files.....................")
-#     return df
