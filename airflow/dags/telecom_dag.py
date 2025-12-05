@@ -1,6 +1,7 @@
 import sys
-sys.path.insert(0, '/home/olalekan/telecom')
-sys.path.insert(0, '/home/olalekan/telecom/snowflakes')
+
+sys.path.insert(0, "/home/olalekan/telecom")
+sys.path.insert(0, "/home/olalekan/telecom/snowflakes")
 
 
 from datetime import datetime, timedelta
@@ -17,23 +18,24 @@ from extract_folder.utils import write_to_s3_parquet
 from extract_folder.s3_extractor import (
     extract_customers,
     extract_call_logs,
-    extract_social_media
+    extract_social_media,
 )
 from snowflakes.snowflake_load import load_s3_parquet_to_snowflake
 
 
 default_args = {
-    'owner': 'data_engineering',
-    'depends_on_past': False,
-    'email_on_failure': True,
-    'email': ['akinmejiolalekan7@gmail.com'],
-    'retries': 2,
-    'retry_delay': timedelta(minutes=5),
-    'execution_timeout': timedelta(hours=2),
+    "owner": "data_engineering",
+    "depends_on_past": False,
+    "email_on_failure": True,
+    "email": ["akinmejiolalekan7@gmail.com"],
+    "retries": 2,
+    "retry_delay": timedelta(minutes=5),
+    "execution_timeout": timedelta(hours=2),
 }
 
 
 # ==================== S3 LOAD FUNCTIONS ====================
+
 
 def extract_and_load_customers(**context):
     """Extract customers and load to S3."""
@@ -42,47 +44,49 @@ def extract_and_load_customers(**context):
         customers_count = int(df["total_rows"].iloc[0])
     else:
         customers_count = 0
-        context['ti'].xcom_push(key='customers_count', value=customers_count)
+        context["ti"].xcom_push(key="customers_count", value=customers_count)
 
 
 def extract_and_load_agents(**context):
     """Extract agents from Google Sheets and load to S3."""
     df = extract_agents()
     if not df.empty:
-        write_to_s3_parquet(df, 'agents')
-        context['ti'].xcom_push(key='agents_count', value=len(df))
+        write_to_s3_parquet(df, "agents")
+        context["ti"].xcom_push(key="agents_count", value=len(df))
 
 
 def extract_and_load_call_logs(**context):
     """Extract call logs for execution date and load to S3."""
-    execution_date = context['ds']
-    exec_date = datetime.strptime(execution_date, '%Y-%m-%d').date()
-    
+    execution_date = context["ds"]
+    exec_date = datetime.strptime(execution_date, "%Y-%m-%d").date()
+
     df = extract_call_logs()
     if not df.empty:
-        write_to_s3_parquet(df, 'call_logs', exec_date)
-        context['ti'].xcom_push(key='call_logs_count', value=len(df))
+        write_to_s3_parquet(df, "call_logs", exec_date)
+        context["ti"].xcom_push(key="call_logs_count", value=len(df))
+
 
 def extract_and_load_social_media(**context):
     """Extract social media data and load to S3. Memory-efficient and idempotent."""
     total_rows = extract_social_media()
-    
+
     if total_rows > 0:
-        context['ti'].xcom_push(key='social_media_count', value=total_rows)
+        context["ti"].xcom_push(key="social_media_count", value=total_rows)
     else:
-        context['ti'].xcom_push(key='social_media_count', value=0)
-    
+        context["ti"].xcom_push(key="social_media_count", value=0)
+
     return total_rows
 
 
 def extract_and_load_web_forms(**context):
-    """Extract web forms from Postgres for execution date and load to S3."""    
+    """Extract web forms from Postgres for execution date and load to S3."""
     rows_written = extract_web_forms(table_name_path="web_forms", chunk_size=50_000)
-    
-    context['ti'].xcom_push(key='web_forms_count', value=rows_written)
+
+    context["ti"].xcom_push(key="web_forms_count", value=rows_written)
 
 
 # ======================= SNOWFLAKES LOAD FUNTIONS ===========================
+
 
 def load_customers_to_snowflake():
     load_s3_parquet_to_snowflake("customers", unique_keys=["CUSTOMER_ID"])
@@ -106,23 +110,39 @@ def load_web_forms_to_snowflake():
 
 ##########################################################################################################
 
+
 def validate_pipeline(**context):
     """Validate that all extractions completed successfully."""
-    ti = context['ti']
-    
+    ti = context["ti"]
+
     s3_counts = {
-        'call_logs': ti.xcom_pull(task_id='extract_call_logs', key='call_logs_count') or 0,
-        'social_media': ti.xcom_pull(task_id='extract_social_media', key='social_media_count') or 0,
-        'web_forms': ti.xcom_pull(task_id='extract_web_forms', key='web_forms_count') or 0,
+        "call_logs": ti.xcom_pull(task_id="extract_call_logs", key="call_logs_count")
+        or 0,
+        "social_media": ti.xcom_pull(
+            task_id="extract_social_media", key="social_media_count"
+        )
+        or 0,
+        "web_forms": ti.xcom_pull(task_id="extract_web_forms", key="web_forms_count")
+        or 0,
     }
-    
+
     sf_counts = {
-        'call_logs': ti.xcom_pull(task_id='load_call_logs_snowflake', key='call_logs_snowflake_rows') or 0,
-        'social_media': ti.xcom_pull(task_id='load_social_media_snowflake', key='social_media_snowflake_rows') or 0,
-        'web_forms': ti.xcom_pull(task_id='load_web_forms_snowflake', key='web_forms_snowflake_rows') or 0,
+        "call_logs": ti.xcom_pull(
+            task_id="load_call_logs_snowflake", key="call_logs_snowflake_rows"
+        )
+        or 0,
+        "social_media": ti.xcom_pull(
+            task_id="load_social_media_snowflake", key="social_media_snowflake_rows"
+        )
+        or 0,
+        "web_forms": ti.xcom_pull(
+            task_id="load_web_forms_snowflake", key="web_forms_snowflake_rows"
+        )
+        or 0,
     }
-    
-    print(f"""
+
+    print(
+        f"""
     ========================================
     PIPELINE VALIDATION SUMMARY
     ========================================
@@ -142,121 +162,133 @@ def validate_pipeline(**context):
 
     Total Snowflake: {sum(sf_counts.values()):,}
     ========================================
-    """)
+    """
+    )
 
 
 with DAG(
-    dag_id='telecom_dag',
+    dag_id="telecom_dag",
     default_args=default_args,
-    description='Unified Customer Experience Data Platform - Staging Layer Ingestion',
+    description="Unified Customer Experience Data Platform - Staging Layer Ingestion",
     start_date=datetime(2025, 11, 20),
-    schedule='@daily',
+    schedule="@daily",
     catchup=False,
     max_active_runs=1,
-    tags=['telecom', 'customer-experience', 'raw-layer'],
+    tags=["telecom", "customer-experience", "raw-layer"],
 ):
-    
-    start = EmptyOperator(task_id='start')
-    
-    with TaskGroup('static_data', tooltip='Extract static reference data') as static_group:
-        
+
+    start = EmptyOperator(task_id="start")
+
+    with TaskGroup(
+        "static_data", tooltip="Extract static reference data"
+    ) as static_group:
+
         # Customers Task
         extract_customers_task = PythonOperator(
-            task_id='extract_customers',
+            task_id="extract_customers",
             python_callable=extract_and_load_customers,
         )
-        
+
         load_customers_task = PythonOperator(
-            task_id='load_customers_snowflake',
+            task_id="load_customers_snowflake",
             python_callable=load_customers_to_snowflake,
         )
-        
+
         # Agents Tasks
         extract_agents_task = PythonOperator(
-            task_id='extract_agents',
+            task_id="extract_agents",
             python_callable=extract_and_load_agents,
         )
 
         load_agents_task = PythonOperator(
-            task_id='load_agents_snowflake',
+            task_id="load_agents_snowflake",
             python_callable=load_agents_to_snowflake,
         )
-        
+
         extract_customers_task >> load_customers_task
         extract_agents_task >> load_agents_task
-    
-    with TaskGroup('daily_data', tooltip='Extract daily incremental data') as daily_group:
-        
+
+    with TaskGroup(
+        "daily_data", tooltip="Extract daily incremental data"
+    ) as daily_group:
+
         # Call Logs Tasks
         extract_call_logs_task = PythonOperator(
-            task_id='extract_call_logs',
+            task_id="extract_call_logs",
             python_callable=extract_and_load_call_logs,
         )
 
         load_call_logs_task = PythonOperator(
-            task_id='load_call_logs_snowflake',
+            task_id="load_call_logs_snowflake",
             python_callable=load_call_logs_to_snowflake,
         )
-        
+
         # Social Media Tasks
         extract_social_media_task = PythonOperator(
-            task_id='extract_social_media',
+            task_id="extract_social_media",
             python_callable=extract_and_load_social_media,
         )
 
         load_social_media_task = PythonOperator(
-            task_id='load_social_media_snowflake',
+            task_id="load_social_media_snowflake",
             python_callable=load_media_data_to_snowflake,
         )
-        
+
         # Web Forms Tasks
         extract_web_forms_task = PythonOperator(
-            task_id='extract_web_forms',
+            task_id="extract_web_forms",
             python_callable=extract_and_load_web_forms,
         )
-        
+
         load_web_forms_task = PythonOperator(
-        task_id='load_web_forms_snowflake',
-        python_callable=load_web_forms_to_snowflake,
+            task_id="load_web_forms_snowflake",
+            python_callable=load_web_forms_to_snowflake,
         )
-        
+
         extract_call_logs_task >> load_call_logs_task
         extract_social_media_task >> load_social_media_task
         extract_web_forms_task >> load_web_forms_task
-    
+
     validate = PythonOperator(
-        task_id='validate_pipeline',
+        task_id="validate_pipeline",
         python_callable=validate_pipeline,
     )
 
-
-    with TaskGroup('dbt_transform', tooltip='dbt transformations: Staging >> Transformed') as dbt_group:
+    with TaskGroup(
+        "dbt_transform", tooltip="dbt transformations: Staging >> Transformed"
+    ) as dbt_group:
         # Test source data quality
         dbt_test_sources = BashOperator(
-            task_id='dbt_test_sources',
-            bash_command='cd /opt/airflow/dbt && dbt test --select source:*',
+            task_id="dbt_test_sources",
+            bash_command="cd /opt/airflow/dbt && dbt test --select source:*",
         )
-        
+
         dbt_run_transformed = BashOperator(
-            task_id='dbt_run_transformed',
-            bash_command='cd /opt/airflow/dbt && dbt run --select transformed.*',
+            task_id="dbt_run_transformed",
+            bash_command="cd /opt/airflow/dbt && dbt run --select transformed.*",
         )
-        
+
         dbt_test_transformed = BashOperator(
-            task_id='dbt_test_marts',
-            bash_command='cd /opt/airflow/dbt && dbt test --select transformed.*',
+            task_id="dbt_test_marts",
+            bash_command="cd /opt/airflow/dbt && dbt test --select transformed.*",
         )
-        
-        dbt_test_sources >> dbt_run_transformed >> dbt_test_transformed 
-    
+
+        dbt_test_sources >> dbt_run_transformed >> dbt_test_transformed
 
     success_notification = BashOperator(
-        task_id='send_success_notification',
+        task_id="send_success_notification",
         bash_command="""
         echo "Pipeline completed successfully for {{ ds }}"
         """,
     )
 
-    end = EmptyOperator(task_id='end')
-    
-    start >> [static_group, daily_group] >> validate >> dbt_group >> success_notification >> end
+    end = EmptyOperator(task_id="end")
+
+    (
+        start
+        >> [static_group, daily_group]
+        >> validate
+        >> dbt_group
+        >> success_notification
+        >> end
+    )

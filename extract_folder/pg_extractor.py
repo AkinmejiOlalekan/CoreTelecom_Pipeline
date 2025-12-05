@@ -17,40 +17,53 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-logging.basicConfig(level=logging.INFO,
-                    format="{asctime} - {levelname} - {message}",
-                    style="{",
-                    datefmt="%Y-%m-%d %H:%M",
-                    filename="process_etl.log",
-                    encoding='utf-8',
-                    filemode="a")
+logging.basicConfig(
+    level=logging.INFO,
+    format="{asctime} - {levelname} - {message}",
+    style="{",
+    datefmt="%Y-%m-%d %H:%M",
+    filename="process_etl.log",
+    encoding="utf-8",
+    filemode="a",
+)
 logger = logging.getLogger(__name__)
 
 session_dest = boto3.Session(
     aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
     aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
-    region_name=os.getenv("AWS_REGION", "eu-north-1")
+    region_name=os.getenv("AWS_REGION", "eu-north-1"),
 )
 
 session_source = boto3.Session(
     aws_access_key_id=os.getenv("SOURCE_AWS_ACCESS_KEY_ID"),
     aws_secret_access_key=os.getenv("SOURCE_AWS_SECRET_ACCESS_KEY"),
-    region_name=os.getenv("AWS_REGION", "eu-north-1")
+    region_name=os.getenv("AWS_REGION", "eu-north-1"),
 )
+
 
 def get_db_credentials_from_ssm():
     """
-        Retrieve Postgres credentials from AWS SSM Parameter Store.
+    Retrieve Postgres credentials from AWS SSM Parameter Store.
     """
     try:
         params = {
-            "host": ssm_client_2.get_parameter(Name="/coretelecomms/database/db_host", WithDecryption=True)["Parameter"]["Value"],
-            "port": ssm_client_2.get_parameter(Name="/coretelecomms/database/db_port", WithDecryption=True)["Parameter"]["Value"],
-            "database": ssm_client_2.get_parameter(Name="/coretelecomms/database/db_name", WithDecryption=True)["Parameter"]["Value"],
-            "user": ssm_client_2.get_parameter(Name="/coretelecomms/database/db_username", WithDecryption=True)["Parameter"]["Value"],
-            "password": ssm_client_2.get_parameter(Name="/coretelecomms/database/db_password", WithDecryption=True)["Parameter"]["Value"],
+            "host": ssm_client_2.get_parameter(
+                Name="/coretelecomms/database/db_host", WithDecryption=True
+            )["Parameter"]["Value"],
+            "port": ssm_client_2.get_parameter(
+                Name="/coretelecomms/database/db_port", WithDecryption=True
+            )["Parameter"]["Value"],
+            "database": ssm_client_2.get_parameter(
+                Name="/coretelecomms/database/db_name", WithDecryption=True
+            )["Parameter"]["Value"],
+            "user": ssm_client_2.get_parameter(
+                Name="/coretelecomms/database/db_username", WithDecryption=True
+            )["Parameter"]["Value"],
+            "password": ssm_client_2.get_parameter(
+                Name="/coretelecomms/database/db_password", WithDecryption=True
+            )["Parameter"]["Value"],
         }
-        
+
         logger.info("-" * 80)
         logger.info("Retrieved DB credentials from SSM")
         logger.info("-" * 80)
@@ -59,29 +72,33 @@ def get_db_credentials_from_ssm():
         logger.info(f"Failed to get SSM parameters: {e}............................")
         raise
 
-def extract_web_forms(table_name_path="web_forms", exec_date = "2025-11-23", chunk_size=50_000):
+
+def extract_web_forms(
+    table_name_path="web_forms", exec_date="2025-11-23", chunk_size=50_000
+):
     """
-        Query Postgres for web form table for the given execution date.
+    Query Postgres for web form table for the given execution date.
     """
-    
+
     if exec_date is None:
         exec_date = EXECUTION_DATE
     elif isinstance(exec_date, int):
         date_str = str(exec_date)
-        exec_date = datetime.strptime(date_str, '%Y%m%d').date()
+        exec_date = datetime.strptime(date_str, "%Y%m%d").date()
     elif isinstance(exec_date, str):
-        if '-' in exec_date:
-            exec_date = datetime.strptime(exec_date, '%Y-%m-%d').date()
+        if "-" in exec_date:
+            exec_date = datetime.strptime(exec_date, "%Y-%m-%d").date()
         else:
-            exec_date = datetime.strptime(exec_date, '%Y%m%d').date()
-
+            exec_date = datetime.strptime(exec_date, "%Y%m%d").date()
 
     table_name = f"web_form_request_{exec_date.strftime('%Y_%m_%d')}"
 
-    logger.info(f"...................... Extracting Web Forms from Postgres table: {table_name}......................")
-    
+    logger.info(
+        f"...................... Extracting Web Forms from Postgres table: {table_name}......................"
+    )
+
     query = f"SELECT * FROM customer_complaints.{table_name}"
-    
+
     total_rows = 0
     conn = None
     try:
@@ -90,13 +107,14 @@ def extract_web_forms(table_name_path="web_forms", exec_date = "2025-11-23", chu
 
         chunk_iter = pd.read_sql(query, conn, chunksize=chunk_size)
 
-        
         for chunk_df in chunk_iter:
             chunk_df = clean_column_names(chunk_df)
             chunk_df = add_metadata(chunk_df, "web_forms")
-        
+
             total_rows += len(chunk_df)
-            logger.info(f"Wrote chunk with {len(chunk_df)} rows so far: {total_rows} .......................")
+            logger.info(
+                f"Wrote chunk with {len(chunk_df)} rows so far: {total_rows} ......................."
+            )
 
             if exec_date:
                 chunk_df = chunk_df.copy()
@@ -108,19 +126,25 @@ def extract_web_forms(table_name_path="web_forms", exec_date = "2025-11-23", chu
                 path=path,
                 boto3_session=session_dest,
                 dataset=True,
-                mode='append',
+                mode="append",
                 partition_cols=["ingestion_date"],
                 compression="snappy",
             )
-            logger.info(f"Successfully wrote {len(chunk_df)} rows to {path}...................")
+            logger.info(
+                f"Successfully wrote {len(chunk_df)} rows to {path}..................."
+            )
 
             del chunk_df
             gc.collect()
 
-        logger.info(f"Loaded {total_rows} web form records from {table_name} in our Data Lake (s3)")
+        logger.info(
+            f"Loaded {total_rows} web form records from {table_name} in our Data Lake (s3)"
+        )
         return total_rows
     except Exception as e:
-        logger.exception(f"********************* Failed to extract web forms for {exec_date}: {e} ******************")
+        logger.exception(
+            f"********************* Failed to extract web forms for {exec_date}: {e} ******************"
+        )
         raise
     finally:
         if conn:

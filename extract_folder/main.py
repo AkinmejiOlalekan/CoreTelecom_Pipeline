@@ -37,11 +37,13 @@ def run_full_pipeline(execution_date=None):
 
     # Static data
     customers_records = extract_customers()
-    logger.info(f"------------------------ Customer data: {customers_records} rows loaded -----------------------------")
+    logger.info(
+        f"------------------------ Customer data: {customers_records} rows loaded -----------------------------"
+    )
 
     df_agents = extract_agents()
     if not df_agents.empty:
-        write_to_s3_parquet(df_agents, "agents", mode='overwrite')
+        write_to_s3_parquet(df_agents, "agents", mode="overwrite")
 
     # Daily data
     df_call_logs = extract_call_logs()
