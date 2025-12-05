@@ -1,4 +1,3 @@
-
 version: '3.8'
 
 services:
@@ -28,17 +27,20 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: telecom_airflow_webserver
-    command: webserver
+    command: api-server
     ports:
       - "8080:8080"
     environment:
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://cd_airflow:airflow321@postgres/airflow
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
-      AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW__WEBSERVER__SECRET_KEY}
+      AIRFLOW__API__SECRET_KEY: ${AIRFLOW__API__SECRET_KEY}
+      AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
       
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      SOURCE_AWS_ACCESS_KEY_ID: ${SOURCE_AWS_ACCESS_KEY_ID}
+      SOURCE_AWS_SECRET_ACCESS_KEY: ${SOURCE_AWS_SECRET_ACCESS_KEY}
       AWS_REGION: ${AWS_REGION}
       SOURCE_BUCKET: ${SOURCE_BUCKET}
       DEST_BUCKET: ${DEST_BUCKET}
@@ -57,7 +59,7 @@ services:
       PYTHONPATH: /opt/airflow:/opt/airflow/extract_folder:/opt/airflow/snowflakes
     
     volumes:
-      - ./dags:/opt/airflow/dags
+      - ./airflow/dags:/opt/airflow/dags
       - ./logs:/opt/airflow/logs
       - ./extract_folder:/opt/airflow/extract_folder
       - ./snowflakes:/opt/airflow/snowflakes
@@ -71,10 +73,7 @@ services:
         condition: service_completed_successfully
     
     healthcheck:
-      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      disable: true
     restart: always
     networks:
       - airflow-network
@@ -84,14 +83,17 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: telecom_airflow_scheduler
-    command: scheduler
+    command: airflow scheduler
     environment:
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://cd_airflow:airflow321@postgres/airflow
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+      AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
       
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      SOURCE_AWS_ACCESS_KEY_ID: ${SOURCE_AWS_ACCESS_KEY_ID}
+      SOURCE_AWS_SECRET_ACCESS_KEY: ${SOURCE_AWS_SECRET_ACCESS_KEY}
       AWS_REGION: ${AWS_REGION}
       SOURCE_BUCKET: ${SOURCE_BUCKET}
       DEST_BUCKET: ${DEST_BUCKET}
@@ -110,7 +112,7 @@ services:
       PYTHONPATH: /opt/airflow:/opt/airflow/extract_folder:/opt/airflow/snowflakes
     
     volumes:
-      - ./dags:/opt/airflow/dags
+      - ./airflow/dags:/opt/airflow/dags
       - ./logs:/opt/airflow/logs
       - ./extract_folder:/opt/airflow/extract_folder
       - ./snowflakes:/opt/airflow/snowflakes
@@ -141,17 +143,22 @@ services:
         
         # Create admin user
         airflow users create \
-          --username airflow \
+          --username "$ADMIN_USER" \
           --firstname Admin \
           --lastname User \
           --role Admin \
           --email admin@example.com \
-          --password "$AIRFLOW_ADMIN_PASSWORD"
+          --password "$ADMIN_PASSWORD"
         
+        echo "=========================================="
         echo "Airflow initialized successfully!"
+        echo "=========================================="
+        echo "=========================================="
     
     environment:
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:$POSTGRES_DB@postgres/airflow
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://cd_airflow:airflow321@postgres/airflow
+      AIRFLOW_ADMIN_PASSWORD: ${AIRFLOW_ADMIN_PASSWORD}
+      AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
     
     depends_on:
       postgres:
