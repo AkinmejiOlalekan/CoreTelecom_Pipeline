@@ -20,9 +20,11 @@ session_dest = boto3.Session(
 )
 
 session_source = boto3.Session(
-    profile_name="source",
-    region_name="eu-north-1"
+    aws_access_key_id=os.getenv("SOURCE_AWS_ACCESS_KEY_ID"),
+    aws_secret_access_key=os.getenv("SOURCE_AWS_SECRET_ACCESS_KEY"),
+    region_name=os.getenv("AWS_REGION", "eu-north-1")
 )
+
 
 s3_client = session_source.client("s3")
 ssm_client = session_source.client("ssm")
