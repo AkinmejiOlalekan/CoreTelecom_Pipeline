@@ -146,7 +146,7 @@ def validate_pipeline(**context):
 
 
 with DAG(
-    dag_id='coretelecoms_unified_platform',
+    dag_id='telecom_dag',
     default_args=default_args,
     description='Unified Customer Experience Data Platform - Staging Layer Ingestion',
     start_date=datetime(2025, 11, 20),
