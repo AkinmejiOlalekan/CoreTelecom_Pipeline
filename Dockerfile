@@ -4,16 +4,12 @@ FROM apache/airflow:3.0.6-python3.11
 USER root
 
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-      build-essential \
-      pkg-config \
-      meson \
-      ninja-build \
-      dbus-x11 \
-      python3-dev \
-      libffi-dev \
-      libssl-dev \
-      libpq-dev \
+RUN apt-get update && apt-get install -y \
+    gcc \
+    libpq-dev \
+    pkg-config \
+    python3-dev \
+    cloud-init \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 
@@ -35,7 +31,7 @@ COPY --chown=airflow:root ./airflow/dags /opt/airflow/dags
 COPY --chown=airflow:root ./dbt /opt/airflow/dbt
 
 ENV PATH="/home/airflow/.local/bin:${PATH}"
-ENV PYTHONPATH="${PYTHONPATH}:/opt/airflow:/opt/airflow/extract_folder:/opt/airflow/snowflakes"
+ENV PYTHONPATH="${PYTHONPATH:-}:/opt/airflow:/opt/airflow/extract_folder:/opt/airflow/snowflakes"
 
 
 RUN mkdir -p /opt/airflow/logs && \
