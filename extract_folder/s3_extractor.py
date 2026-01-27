@@ -14,7 +14,7 @@ from utils import (
     get_new_source_files,
     mark_source_files_as_processed,
     write_to_s3_parquet,
-    safely_normalize_json
+    safely_normalize_json,
 )
 from dotenv import load_dotenv
 
@@ -202,30 +202,30 @@ def extract_social_media():
             data = json.loads(obj["Body"].read())
 
             if isinstance(data, list):
-                # normalize each element safely and concat 
+                # normalize each element safely and concat
                 dfs = []
                 for item in data:
                     try:
                         dfs.append(safely_normalize_json(item))
                     except Exception as e:
-                        logger.warning(f"Warning normalizing item in list of {file_key}: {e}")
+                        logger.warning(
+                            f"Warning normalizing item in list of {file_key}: {e}"
+                        )
                 df = pd.concat(dfs, ignore_index=True) if dfs else pd.DataFrame()
             else:
                 df = safely_normalize_json(data)
 
-
             if df is None or df.shape[0] == 0:
-                logger.warning(f"No rows extracted from {file_key} after normalization. Skipping.")
+                logger.warning(
+                    f"No rows extracted from {file_key} after normalization. Skipping."
+                )
                 continue
-
 
             df = clean_column_names(df)
             df = add_metadata(df, "social_medias")
 
             # Check if partition already exists in destination S3
-            partition_path = (
-                f"s3://{DEST_BUCKET}/staging/social_medias/media_complaint_day_{partition_date}"
-            )
+            partition_path = f"s3://{DEST_BUCKET}/staging/social_medias/media_complaint_day_{partition_date}"
 
             try:
                 # Try to read existing partition to check if it exists
@@ -262,7 +262,9 @@ def extract_social_media():
             gc.collect()
 
         except Exception as e:
-            logger.error(f"********************** Failed to process {file_key}: {e} ************************")
+            logger.error(
+                f"********************** Failed to process {file_key}: {e} ************************"
+            )
             continue
 
     # Mark files as processed only after successful completion
@@ -272,6 +274,8 @@ def extract_social_media():
             f"--------------------- SUCCESS: Loaded {total_rows} records from {len(new_files)} files ------------------------"
         )
     else:
-        logger.warning("_____________________________ No rows were processed _____________________________")
+        logger.warning(
+            "_____________________________ No rows were processed _____________________________"
+        )
 
     return total_rows

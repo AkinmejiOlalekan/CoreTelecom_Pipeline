@@ -192,24 +192,30 @@ def write_to_s3_parquet(df, table_name, mode=None, partition_date=None):
 
 def safely_normalize_json(data):
     """
-        Safely normalizes a json object or dict-like into a pandas DataFrame
-        without exploding arrays into thousands of columns.
+    Safely normalizes a json object or dict-like into a pandas DataFrame
+    without exploding arrays into thousands of columns.
     """
     df = pd.json_normalize(data, max_level=1)
 
     if df.shape[0] == 0:
         return df
 
-    list_cols = [c for c in df.columns if df[c].apply(lambda x: isinstance(x, list)).any()]
+    list_cols = [
+        c for c in df.columns if df[c].apply(lambda x: isinstance(x, list)).any()
+    ]
 
     for col in list_cols:
         try:
             df = df.explode(col)
         except Exception:
-            df[col] = df[col].apply(lambda x: x if isinstance(x, list) else ([x] if pd.notnull(x) else []))
+            df[col] = df[col].apply(
+                lambda x: x if isinstance(x, list) else ([x] if pd.notnull(x) else [])
+            )
             df = df.explode(col)
 
-    dict_cols = [c for c in df.columns if df[c].apply(lambda x: isinstance(x, dict)).any()]
+    dict_cols = [
+        c for c in df.columns if df[c].apply(lambda x: isinstance(x, dict)).any()
+    ]
 
     for col in dict_cols:
         df[col] = df[col].apply(lambda x: json.dumps(x) if isinstance(x, dict) else x)

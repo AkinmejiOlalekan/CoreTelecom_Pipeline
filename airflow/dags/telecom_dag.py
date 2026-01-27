@@ -22,7 +22,6 @@ from extract_folder.s3_extractor import (
 )
 from snowflakes.snowflake_load import load_s3_parquet_to_snowflake
 
-
 default_args = {
     "owner": "data_engineering",
     "depends_on_past": False,
@@ -141,8 +140,7 @@ def validate_pipeline(**context):
         or 0,
     }
 
-    print(
-        f"""
+    print(f"""
     ========================================
     PIPELINE VALIDATION SUMMARY
     ========================================
@@ -162,8 +160,7 @@ def validate_pipeline(**context):
 
     Total Snowflake: {sum(sf_counts.values()):,}
     ========================================
-    """
-    )
+    """)
 
 
 with DAG(

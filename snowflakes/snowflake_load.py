@@ -1,7 +1,6 @@
 import snowflake.connector
 import logging
 
-
 logging.basicConfig(
     level=logging.INFO,
     format="{asctime} - {levelname} - {message}",

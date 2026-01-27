@@ -1,7 +1,6 @@
 from dotenv import load_dotenv
 import os
 
-
 load_dotenv()
 
 DEST_BUCKET = os.getenv("DEST_BUCKET")
