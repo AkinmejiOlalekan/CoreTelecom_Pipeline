@@ -1,5 +1,6 @@
 import os
 import json
+import pandas as pd
 import boto3
 import logging
 import awswrangler as wr
@@ -15,12 +16,7 @@ session_dest = boto3.Session(
     region_name=os.getenv("AWS_REGION", "eu-north-1"),
 )
 
-session_source = boto3.Session(
-    aws_access_key_id=os.getenv("SOURCE_AWS_ACCESS_KEY_ID"),
-    aws_secret_access_key=os.getenv("SOURCE_AWS_SECRET_ACCESS_KEY"),
-    region_name=os.getenv("AWS_REGION", "eu-north-1"),
-)
-
+session_source = boto3.Session(profile_name="source", region_name="eu-north-1")
 
 s3_client_1 = session_dest.client("s3")
 ssm_client_1 = session_dest.client("ssm")
@@ -192,3 +188,32 @@ def write_to_s3_parquet(df, table_name, mode=None, partition_date=None):
         compression="snappy",
     )
     logger.info(f"Successfully wrote {len(df)} rows to {path}...................")
+
+
+def safely_normalize_json(data):
+    """
+        Safely normalizes a json object or dict-like into a pandas DataFrame
+        without exploding arrays into thousands of columns.
+    """
+    df = pd.json_normalize(data, max_level=1)
+
+    if df.shape[0] == 0:
+        return df
+
+    list_cols = [c for c in df.columns if df[c].apply(lambda x: isinstance(x, list)).any()]
+
+    for col in list_cols:
+        try:
+            df = df.explode(col)
+        except Exception:
+            df[col] = df[col].apply(lambda x: x if isinstance(x, list) else ([x] if pd.notnull(x) else []))
+            df = df.explode(col)
+
+    dict_cols = [c for c in df.columns if df[c].apply(lambda x: isinstance(x, dict)).any()]
+
+    for col in dict_cols:
+        df[col] = df[col].apply(lambda x: json.dumps(x) if isinstance(x, dict) else x)
+
+    df = df.reset_index(drop=True)
+
+    return df

@@ -34,11 +34,7 @@ session_dest = boto3.Session(
     region_name=os.getenv("AWS_REGION", "eu-north-1"),
 )
 
-session_source = boto3.Session(
-    aws_access_key_id=os.getenv("SOURCE_AWS_ACCESS_KEY_ID"),
-    aws_secret_access_key=os.getenv("SOURCE_AWS_SECRET_ACCESS_KEY"),
-    region_name=os.getenv("AWS_REGION", "eu-north-1"),
-)
+session_source = boto3.Session(profile_name="source", region_name="eu-north-1")
 
 
 def get_db_credentials_from_ssm():

@@ -31,7 +31,7 @@ services:
     ports:
       - "8080:8080"
     environment:
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://cd_airflow:airflow321@postgres/airflow
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://cd_airflow:$POSTGRES_PASSWORD@postgres:5432/airflow
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
       AIRFLOW__API__SECRET_KEY: ${AIRFLOW__API__SECRET_KEY}
@@ -85,7 +85,7 @@ services:
     container_name: telecom_airflow_scheduler
     command: airflow scheduler
     environment:
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://cd_airflow:airflow321@postgres/airflow
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://cd_airflow:$POSTGRES_PASSWORD@postgres:5432/airflow
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
       AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
@@ -148,7 +148,7 @@ services:
           --lastname User \
           --role Admin \
           --email admin@example.com \
-          --password "$ADMIN_PASSWORD"
+          --password "$AIRFLOW_ADMIN_PASSWORD"
         
         echo "=========================================="
         echo "Airflow initialized successfully!"
@@ -156,7 +156,7 @@ services:
         echo "=========================================="
     
     environment:
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://cd_airflow:airflow321@postgres/airflow
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://cd_airflow:$POSTGRES_PASSWORD@postgres:5432/airflow
       AIRFLOW_ADMIN_PASSWORD: ${AIRFLOW_ADMIN_PASSWORD}
       AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
     

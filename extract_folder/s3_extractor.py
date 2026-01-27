@@ -14,6 +14,7 @@ from utils import (
     get_new_source_files,
     mark_source_files_as_processed,
     write_to_s3_parquet,
+    safely_normalize_json
 )
 from dotenv import load_dotenv
 
@@ -25,12 +26,7 @@ session_dest = boto3.Session(
     region_name=os.getenv("AWS_REGION", "eu-north-1"),
 )
 
-session_source = boto3.Session(
-    aws_access_key_id=os.getenv("SOURCE_AWS_ACCESS_KEY_ID"),
-    aws_secret_access_key=os.getenv("SOURCE_AWS_SECRET_ACCESS_KEY"),
-    region_name=os.getenv("AWS_REGION", "eu-north-1"),
-)
-
+session_source = boto3.Session(profile_name="source", region_name="eu-north-1")
 
 s3_client = session_source.client("s3")
 ssm_client = session_source.client("ssm")
@@ -202,22 +198,33 @@ def extract_social_media():
             date_str = filename.split("_")[-1].replace(".json", "")
             partition_date = datetime.strptime(date_str, "%Y-%m-%d").date()
 
-            # Read and process file
             obj = s3_client.get_object(Bucket=SOURCE_BUCKET, Key=file_key)
             data = json.loads(obj["Body"].read())
-            df = (
-                pd.json_normalize(data)
-                if isinstance(data, list)
-                else pd.json_normalize([data])
-            )
 
-            # Clean and add metadata
+            if isinstance(data, list):
+                # normalize each element safely and concat 
+                dfs = []
+                for item in data:
+                    try:
+                        dfs.append(safely_normalize_json(item))
+                    except Exception as e:
+                        logger.warning(f"Warning normalizing item in list of {file_key}: {e}")
+                df = pd.concat(dfs, ignore_index=True) if dfs else pd.DataFrame()
+            else:
+                df = safely_normalize_json(data)
+
+
+            if df is None or df.shape[0] == 0:
+                logger.warning(f"No rows extracted from {file_key} after normalization. Skipping.")
+                continue
+
+
             df = clean_column_names(df)
             df = add_metadata(df, "social_medias")
 
             # Check if partition already exists in destination S3
             partition_path = (
-                f"s3://{DEST_BUCKET}/social_medias/media_complaint_day_{partition_date}"
+                f"s3://{DEST_BUCKET}/staging/social_medias/media_complaint_day_{partition_date}"
             )
 
             try:
@@ -255,16 +262,16 @@ def extract_social_media():
             gc.collect()
 
         except Exception as e:
-            logger.error(f"✗ Failed to process {file_key}: {e}")
+            logger.error(f"********************** Failed to process {file_key}: {e} ************************")
             continue
 
     # Mark files as processed only after successful completion
     if total_rows > 0:
         mark_source_files_as_processed(new_files, EXECUTION_DATE)
         logger.info(
-            f"SUCCESS: Loaded {total_rows} records from {len(new_files)} files ✓"
+            f"--------------------- SUCCESS: Loaded {total_rows} records from {len(new_files)} files ------------------------"
         )
     else:
-        logger.warning("No rows were processed")
+        logger.warning("_____________________________ No rows were processed _____________________________")
 
     return total_rows
